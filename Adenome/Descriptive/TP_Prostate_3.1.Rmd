@@ -1,0 +1,349 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+
+#III Clustering des données RTUPB-VBBPS et VAPOR:
+
+#3.1 : Extraction des profils types de patients à partir des données pré-opératoires (sous-tableau de gauche):
+
+a) Definition du répertoire de travail, installation et chargement des librairies:
+```{r}
+setwd("~/R_TP")
+ #install.packages("cluster")
+ #install.packages("readxl")
+ library(cluster)
+ library(readxl)
+```
+
+b1) Import et traitement de VAPOR-VAPOR_preop:
+```{r}
+ #Import et traitement de VAPOR-VAPOR_preop:
+ VAPOR <- read_xlsx("ADENOME-PROST.xlsx", skip = 1, col_names = TRUE)
+ VAPOR_preop <- read_xlsx("ADENOME-PROST.xlsx", sheet = 1,range ="A2:U42",col_names = TRUE)
+ names(VAPOR_preop) <- make.names(names(VAPOR_preop))
+ 
+ #Suppression des doublons:
+ VAPOR <-  VAPOR[c(-11,-22),]
+ VAPOR_preop <-VAPOR_preop[c(-11,-22),]
+ 
+ #Conversion des variables en facteurs:
+ VAPOR_preop$Comorbidité.CardioVx <-as.factor(VAPOR_preop$Comorbidité.CardioVx)
+ VAPOR_preop$poteur.de.sonde <- as.factor(VAPOR_preop$poteur.de.sonde)
+ VAPOR_preop$Indication <- as.factor(VAPOR_preop$Indication)
+ VAPOR_preop$Anesthésie <- as.factor(VAPOR_preop$Anesthésie)
+ VAPOR_preop$Evenement.H.D <- as.factor(VAPOR_preop$Evenement.H.D)
+ VAPOR_preop$Technique <- as.factor(VAPOR_preop$Technique)
+ VAPOR_preop$Transfusion.PerO <- as.factor(VAPOR_preop$Transfusion.PerO)
+ VAPOR_preop$caillotage <- as.factor(VAPOR_preop$caillotage)
+ VAPOR_preop$reprise.au.bloc <- as.factor(VAPOR_preop$reprise.au.bloc)
+ 
+ #Ici on met les scores en facteur:
+ VAPOR_preop$IPSS.P.O <- as.factor(VAPOR_preop$IPSS.P.O)
+ VAPOR_preop$QoL.P.O <- as.factor(VAPOR_preop$QoL.P.O)
+ 
+ #Suppression de la variable résidu-post mictionnel:
+ VAPOR_preop <- VAPOR_preop[,-11]
+ 
+```
+
+
+b2) Import et traitement de RTUPB-RTUPB_preop-VBBPS-RTUPB_preop:
+```{r}
+ RTUPB <- read_xlsx("ADENOME-PROST.xlsx",sheet = 2,range ="A2:AP38", skip = 1, col_names = TRUE)
+ RTUPB_preop <- read_xlsx("ADENOME-PROST.xlsx", sheet = 2,range ="A2:U38",col_names = TRUE)
+ names(RTUPB_preop) <- make.names(names(RTUPB_preop))
+ 
+ 
+ #Conversion des variables en facteurs:
+ RTUPB_preop$Comorbidité.CardioVx <-as.factor(RTUPB_preop$Comorbidité.CardioVx)
+ RTUPB_preop$poteur.de.sonde <- as.factor(RTUPB_preop$poteur.de.sonde)
+ RTUPB_preop$Indication <- as.factor(RTUPB_preop$Indication)
+ RTUPB_preop$Anesthésie <- as.factor(RTUPB_preop$Anesthésie)
+ RTUPB_preop$Evenement.H.D <- as.factor(RTUPB_preop$Evenement.H.D)
+ RTUPB_preop$Technique <- as.factor(RTUPB_preop$Technique)
+ RTUPB_preop$Transfusion.PerO <- as.factor(RTUPB_preop$Transfusion.PerO)
+ RTUPB_preop$caillotage <- as.factor(RTUPB_preop$caillotage)
+ RTUPB_preop$reprise.au.bloc <- as.factor(RTUPB_preop$reprise.au.bloc)
+ 
+ #Ici on met les scores en facteur:
+ RTUPB_preop$IPSS.P.O <- as.factor(RTUPB_preop$IPSS.P.O)
+ RTUPB_preop$QoL.P.O <- as.factor(RTUPB_preop$QoL.P.O)
+ 
+ #Import VBBPS:
+ VBBPS <- read_xlsx("ADENOME-PROST.xlsx",sheet = 3,range ="A2:AP34", skip = 1, col_names = TRUE)
+ VBBPS_preop <- read_xlsx("ADENOME-PROST.xlsx", sheet = 3,range ="A2:U34",col_names = TRUE)
+ names(VBBPS_preop) <- make.names(names(VBBPS_preop))
+ 
+ #Conversion des variables en facteurs:
+ VBBPS_preop$Comorbidité.CardioVx <-as.factor(VBBPS_preop$Comorbidité.CardioVx)
+ VBBPS_preop$poteur.de.sonde <- as.factor(VBBPS_preop$poteur.de.sonde)
+ VBBPS_preop$Indication <- as.factor(VBBPS_preop$Indication)
+ VBBPS_preop$Anesthésie <- as.factor(VBBPS_preop$Anesthésie)
+ VBBPS_preop$Evenement.H.D <- as.factor(VBBPS_preop$Evenement.H.D)
+ VBBPS_preop$Technique <- as.factor(VBBPS_preop$Technique)
+ VBBPS_preop$Transfusion.PerO <- as.factor(VBBPS_preop$Transfusion.PerO)
+ VBBPS_preop$caillotage <- as.factor(VBBPS_preop$caillotage)
+ VBBPS_preop$reprise.au.bloc <- as.factor(VBBPS_preop$reprise.au.bloc)
+ 
+ #Ici on met les scores en facteur:
+ VBBPS_preop$IPSS.P.O <- as.factor(VBBPS_preop$IPSS.P.O)
+ VBBPS_preop$QoL.P.O <- as.factor(VBBPS_preop$QoL.P.O)
+ 
+
+```
+##### Commentaire b1&b2:
+On supprime la variable résidu post-mictionnel car il n´y a pas assez de données disponibles pour inferer les valeurs manquantes dans les bases VAPOR et RTUPB-VBBPS.
+
+b3) Fusion des bases VBBPS-RTUPB
+```{r}
+ #Fusion des tableaux VBBPS et RTUPB:
+ colnames(RTUPB)[1]<-"Methode" 
+ colnames(VBBPS)[1]<-"Methode"
+ colnames(RTUPB_preop)[1]<-"Methode" 
+ colnames(VBBPS_preop)[1]<-"Methode"
+ RTUPB_VBBPS <- rbind(RTUPB,VBBPS,deparse.level = 1)
+ RTUPB_VBBPS_preop <- rbind(RTUPB_preop,VBBPS_preop,deparse.level = 1)
+ 
+ #Suppression de la variable résidu-pst mictionnel:
+ RTUPB_VBBPS_preop <- RTUPB_VBBPS_preop[,-11]
+ #Suppression de la variable méthode:
+ RTUPB_VBBPS_preop <- RTUPB_VBBPS_preop[,-1]
+```
+
+#3.1.1 VAPOR:Extraire les profils types de patients en utilisant PAM et la CAH. Valider le nombre de classes obtenu pour VAPOR.
+
+a) Definition de la fonction PAM_optim:
+```{r} 
+#definition de la fonction PAM_optim
+PAM_optim <- function(matrice,n_max, nclust_PAM = 0){
+  library(cluster)
+  temp_datas <- data.frame(n_kluster = c(1),avg_width= c(0))
+  for(i in 2:n_max){
+    PAM_D1 <- pam(matrice,metric = "euclidian", k = i)
+    temp_datas[i,1] <- i
+    temp_datas[i,2]<- PAM_D1$silinfo$avg.width
+  }
+
+  plot(temp_datas$avg_width ~ temp_datas$n_kluster , type= "b", col= "darkgray" ,lwd = 1.5,xlab="Nombre de Cluster",ylab="Hauteur moyenne (figure silhouette)")
+   title(main = "Figure d'optimisation de PAM")
+   abline(v = temp_datas$n_kluster[which.max(temp_datas$avg_width)], type= "n", col= "red", lwd=1)
+   if(nclust_PAM !=0){
+     abline(v=nclust_PAM, type= "n", col= "green", lwd=1 )
+     }
+   if (nclust_PAM == 0){
+   Choosen_PAM <- pam(matrice,metric = "euclidian", k =which.max(temp_datas$avg_width) )
+   plot(Choosen_PAM)
+   }else{
+     Choosen_PAM <- pam(matrice,metric = "euclidian", k =nclust_PAM )
+     plot(Choosen_PAM)
+
+   }
+}
+
+```
+
+a1) Analyse CAH pour VAPOR:
+```{r}
+#Création de la matrice de dissimilarité:
+ M_Dis_VAPOR_preop<- daisy(VAPOR_preop,metric = "gower")
+ 
+ #CAH sur VAPOR_PreOp:
+ Hclust_Res_VAPOR_preop_1 <- hclust(M_Dis_VAPOR_preop,method ="ward.D2")
+ #Hclust_Res_VAPOR_preop_2 <- hclust(M_Dis_VAPOR_preop,method ="complete")
+ #par(mfrow=c(1,2))
+ plot(Hclust_Res_VAPOR_preop_1,main="CAH Methode VAPOR")
+ #plot(Hclust_Res_VAPOR_preop_2)
+
+
+```
+##### Commentaire a1:
+Il semble qu´il faut définir 3,4,5 cluster. Afin de déterminer le nombre de cluster optimal, visualisation de la courbe height/nb of clusters
+
+
+b1) Courbe optimisation du nombre de cluster PAM pour VAPOR:
+```{r} 
+#Vérification du nombre de cluster optimal pour VAPOR
+PAM_optim(M_Dis_VAPOR_preop,30,nclust_PAM = 4)
+```
+##### Commentaire b1:
+Le nombre de cluster optimal theorique est de 15, cependant 4 clusters semble etre un nombre plus raisonnable de cluster avec un height localement le plus élevé.
+On valide le nombre de 4 classes pour la methode VAPOR.
+
+c1) Analyse PAM pour VAPOR:
+```{r}
+ #PAM:
+ par(mfrow=c(1,1))
+ PAM_Res_VAPOR_preop <- pam(M_Dis_VAPOR_preop,k=4)
+ plot(PAM_Res_VAPOR_preop)
+ 
+ #Appartenance de chaque individu a chaque cluster.
+ PAM_Res_VAPOR_preop$clustering
+ #Ajout des classes individus au cluster:
+ VAPOR_PAM <- VAPOR
+ VAPOR_PAM$Cluster_Pam <- PAM_Res_VAPOR_preop$clustering
+
+
+ #PAM_Res_VAPOR_preop$clusinfo
+ #PAM_Res_VAPOR_preop$silinfo
+```
+
+#3.1.2 VAPOR:Indiquer et caractériser les patients medoids de chaque classe de VAPOR:
+a1) Visualisation et caractèrisation des patients medoids pour VAPOR:
+```{r}
+#Patients medoids.
+
+ PAM_Res_VAPOR_preop$medoids
+ VAPOR[PAM_Res_VAPOR_preop$medoids,]
+ VAPOR_Medoids <-  VAPOR[PAM_Res_VAPOR_preop$medoids,]
+write.csv2(VAPOR_Medoids, file = "my_data.csv")
+ #groupe 1: patient 18 agé 81, Durée Traitement courte =9, IPSS forte P.O =35, QmaxPO faible =0,QoL PO= 5/6,VolPros modéré =92.
+ #groupe 2: patient 34 agé 73, Durée Traitement longue =72, IPSS moyenne P.O =20, QmaxPO moyenne =9,QoL PO= 5/6,VolPros fort =152.
+ #groupe 3: patient 30 agé 58, Durée Traitement courte =21, IPSS forte P.O =35, QmaxPO moyenne =2.4,QoL PO= 5/6,VolPros modéré =78.
+ #groupe 4: patient 20 agé 63, Durée Traitement longue =119, IPSS forte P.O =26, QmaxPO moyenne =8.5,QoL PO= 5/6,VolPros fort =126.
+
+```
+##### Commentaire a1:
+2 groupes: patients jeunes (50-65 ans) avec  
+
+
+#Visualisation des groupes de la methode VAPOR_PAM:
+```{r}
+par(mfrow=c(1,4))
+ #Groupe 1
+boxplot(subset(VAPOR_PAM, Cluster_Pam=='1')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 1 VAPOR",ylab = "QMax12")
+ #Groupe 2
+boxplot(subset(VAPOR_PAM, Cluster_Pam=='2')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 2 VAPOR",ylab = "QMax12")
+ #Groupe 3
+ boxplot(subset(VAPOR_PAM, Cluster_Pam=='3')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 3 VAPOR",ylab = "QMax12")
+ #Groupe 4
+ boxplot(subset(VAPOR_PAM, Cluster_Pam=='4')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 4 VAPOR",ylab = "QMax12")
+```
+
+
+#3.1.1 RTUPB_VBBPS:Extraire les profils types de patients en utilisant PAM et la CAH. Valider le nombre de classes obtenu pour RTUPB_VBBPS.
+
+a2) Analyse CAH pour la méthode RTUPB_VBBPS:
+```{r}
+par(mfrow=c(1,1))
+
+#Création de la matrice de dissimilarité:
+ M_Dis_RTUPB_VBBPS_preop<- daisy(RTUPB_VBBPS_preop,metric = "gower")
+ M_Dis_RTUPB_VBBPS_preop
+ 
+ #CAH sur VBBPS_preop:
+ Hclust_Res_RTUPB_VBBPS_preop_1 <- hclust(M_Dis_RTUPB_VBBPS_preop,method ="ward.D2")
+ #Hclust_Res_RTUPB_VBBPS_preop_2 <- hclust(M_Dis_RTUPB_VBBPS_preop,method ="complete")
+ #par(mfrow=c(1,2))
+ plot(Hclust_Res_RTUPB_VBBPS_preop_1)
+ #plot(Hclust_Res_RTUPB_VBBPS_preop_2)
+ 
+ #CAH donne la bonne structure
+
+```
+##### Commentaire a2:
+Il semble qu´il faut définir 3,4,5 cluster. Afin de déterminer le nombre de cluster optimal, visualisation de la courbe height/nb of clusters
+
+
+b2)Courbe optimisation du nombre de cluster PAM pour VAPOR:
+```{r} 
+#Vérification du nombre de cluster optimal pour VAPOR
+PAM_optim(M_Dis_RTUPB_VBBPS_preop,30,nclust_PAM = 4)
+```
+##### Commentaire b1:
+Le nombre de cluster optimal theorique est de 25, cependant 4 clusters semble etre un nombre plus raisonnable de cluster avec un height localement le plus élevé.
+On valide le nombre de 4 classes pour la methode RTUPB_VBBPS.
+
+c2)Analyse PAM pour la methode RTUPB_VBBPS:
+```{r}
+ #PAM:
+ par(mfrow=c(1,1))
+ PAM_Res_RTUPB_VBBPS_preop <- pam(M_Dis_RTUPB_VBBPS_preop,k=4)
+ plot(PAM_Res_RTUPB_VBBPS_preop)
+ 
+ #Appartenance de chaque individu a chaque cluster.
+ PAM_Res_RTUPB_VBBPS_preop$clustering
+ #Ajout des classes individus au cluster:
+ RTUPB_VBBPS_PAM <- RTUPB_VBBPS
+ RTUPB_VBBPS_PAM$Cluster_Pam <- PAM_Res_RTUPB_VBBPS_preop$clustering
+
+ #PAM_Res_VAPOR_preop$clusinfo
+ #PAM_Res_VAPOR_preop$silinfo
+ 
+```
+
+
+#3.1.2 RTUPB_VBBPS: Indiquer et caractériser les patients medoids de chaque classe de RTUPB_VBBPS:
+```{r}
+#Patients medoids.
+ PAM_Res_RTUPB_VBBPS_preop$medoids
+ RTUPB_VBBPS[PAM_Res_RTUPB_VBBPS_preop$medoids,]
+  RTUPB_VBBPS_Medoids <-  RTUPB_VBBPS[PAM_Res_RTUPB_VBBPS_preop$medoids,]
+write.csv2(RTUPB_VBBPS_Medoids, file = "my_data.csv")
+
+  #Patiens medoid avec:
+#groupe 1: patient agé 62, Durée Traitement courte =13, IPSS forte P.O =29, QmaxPO moyenne =8.9,QoL PO= 5/6,VolPros modéré =56.
+#groupe 2: patient jeune 77, Durée Traitement moyenne =48, IPSS forte P.O =24, QmaxPO moyenne =7.4,QoL PO= 5/6,VolPros modéré =58.
+#groupe 3: patient agé 75, Durée Traitement moyenne =38, IPSS forte P.O =35, QmaxPO faible =0,QoL PO= 5/6,VolPros modéré =52.
+#groupe 1: patient agé 66, Durée Traitement longue =74, IPSS forte P.O =22, QmaxPO moyenne =3.9,QoL PO= 5/6,VolPros modéré =55.
+```
+
+```{r}
+par(mfrow=c(1,4))
+ #Groupe 1
+boxplot(subset(RTUPB_VBBPS_PAM, Cluster_Pam=='1')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 1 RTUPB_VBBPS",ylab = "QMax12")
+ #Groupe 2
+boxplot(subset(RTUPB_VBBPS_PAM, Cluster_Pam=='2')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 2 RTUPB_VBBPS",ylab = "QMax12")
+ #Groupe 3
+ boxplot(subset(RTUPB_VBBPS_PAM, Cluster_Pam=='3')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 3 RTUPB_VBBPS",ylab = "QMax12")
+  #Groupe 4
+ boxplot(subset(RTUPB_VBBPS_PAM, Cluster_Pam=='4')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 4 RTUPB_VBBPS",ylab = "QMax12")
+```
+
+#3.1.3 :Visualiser, pour chaque classe obtenue, les distributions (boxplot) du Qmax à 12 mois des deux techniques RTUPB-VBBPS 
+```{r}
+par(mfrow=c(2,4))
+ #Groupe 1
+boxplot(subset(VAPOR_PAM, Cluster_Pam=='1')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 1 VAPOR",ylab = "QMax12")
+ #Groupe 2
+boxplot(subset(VAPOR_PAM, Cluster_Pam=='2')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 2 VAPOR",ylab = "QMax12")
+ #Groupe 3
+ boxplot(subset(VAPOR_PAM, Cluster_Pam=='3')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 3 VAPOR",ylab = "QMax12")
+ #Groupe 4
+ boxplot(subset(VAPOR_PAM, Cluster_Pam=='4')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 4 VAPOR",ylab = "QMax12")
+ 
+ #Groupe 1
+boxplot(subset(RTUPB_VBBPS_PAM, Cluster_Pam=='1')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 1 RTUPB_VBBPS",ylab = "QMax12")
+ #Groupe 2
+boxplot(subset(RTUPB_VBBPS_PAM, Cluster_Pam=='2')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 2 RTUPB_VBBPS",ylab = "QMax12")
+ #Groupe 3
+ boxplot(subset(RTUPB_VBBPS_PAM, Cluster_Pam=='3')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 3 RTUPB_VBBPS",ylab = "QMax12")
+  #Groupe 4
+ boxplot(subset(RTUPB_VBBPS_PAM, Cluster_Pam=='4')[,39],ylim=c(0,50),col = "steelblue",main="Groupe 4 RTUPB_VBBPS",ylab = "QMax12")
+```
+#3.1.4 Que peut-on conclure quant à l'e???et de la technique opératoire sur la le niveau de guérison des patients ?
+```{r}
+par(mfrow=c(1,4))
+boxplot(subset(VAPOR_PAM, Cluster_Pam=='1')[,c(2,6,7,8,39)],ylim=c(0,85),col = "steelblue",main="Groupe 1 VAPOR",ylab = "QMax12")
+boxplot(subset(VAPOR_PAM, Cluster_Pam=='2')[,c(2,6,7,8,39)],ylim=c(0,85),col = "steelblue",main="Groupe 2 VAPOR",ylab = "QMax12")
+boxplot(subset(VAPOR_PAM, Cluster_Pam=='3')[,c(2,6,7,8,39)],ylim=c(0,85),col = "steelblue",main="Groupe 3 VAPOR",ylab = "QMax12")
+boxplot(subset(VAPOR_PAM, Cluster_Pam=='4')[,c(2,6,7,8,39)],ylim=c(0,85),col = "steelblue",main="Groupe 4 VAPOR",ylab = "QMax12")
+# ###
+# Faire le commentaire sur les 4 groupes pour VAPOR
+# ###
+```
+
+```{r}
+par(mfrow=c(1,4))
+boxplot(subset(RTUPB_VBBPS_PAM, Cluster_Pam=='1')[,c(2,6,7,8,39)],ylim=c(0,85),col = "steelblue",main="Groupe 1 RTUPB_VBBPS",ylab = "QMax12")
+boxplot(subset(RTUPB_VBBPS_PAM, Cluster_Pam=='2')[,c(2,6,7,8,39)],ylim=c(0,85),col = "steelblue",main="Groupe 2 RTUPB_VBBPS",ylab = "QMax12")
+boxplot(subset(RTUPB_VBBPS_PAM, Cluster_Pam=='3')[,c(2,6,7,8,39)],ylim=c(0,85),col = "steelblue",main="Groupe 3 RTUPB_VBBPS",ylab = "QMax12")
+boxplot(subset(RTUPB_VBBPS_PAM, Cluster_Pam=='4')[,c(2,6,7,8,39)],ylim=c(0,85),col = "steelblue",main="Groupe 4 RTUPB_VBBPS",ylab = "QMax12")
+# ###
+# Faire le commentaire sur les 4 groupes pour RTUPB-VBBPS
+# ###
+```

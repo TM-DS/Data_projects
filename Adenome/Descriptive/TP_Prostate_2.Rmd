@@ -1,0 +1,534 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+#Data Wrangling:
+```{r}
+
+#Installation des packages
+#install.packages("onehot")
+#install.packages("PerformanceAnalytics")
+#install.packages("corrr")
+#install.packages("GGally")
+
+
+#Projet prostate
+setwd("~/R_TP")
+
+#Chargement Librairies
+library(onehot)
+library(data.table)
+library(corrplot)
+library(PerformanceAnalytics)
+library(corrr)
+library(plyr)
+library(dplyr)
+library(GGally)
+library(ggplot2)
+library(readxl)
+library(tidyverse)
+
+#Renommage des facteurs des variables Indication-Technique-Anesthesie-Evenement_HD: 
+Rename_factors <- function(Nom_dataframe){
+  RTUPB_raw <- get(Nom_dataframe)
+
+  
+  for (i in 1:nrow(RTUPB_raw)){
+    #Renommage des facteurs des variables Indication
+    if(RTUPB_raw$Indication[i]== "1"){
+      
+      RTUPB_raw$Indication[i] <- "Retension_vesicale"
+    
+      
+    }
+    if(RTUPB_raw$Indication[i]== "2"){
+      
+      RTUPB_raw$Indication[i] <- "Echec_du_traitement"
+   
+    }
+    if(RTUPB_raw$Indication[i]== "3"){
+      
+      RTUPB_raw$Indication[i] <- "Retension_vesicale_chronique"
+     
+    }
+    if(RTUPB_raw$Indication[i]== "4"){
+      
+      RTUPB_raw$Indication[i] <- "Insuffisance_renale"
+      
+    }
+    if(RTUPB_raw$Indication[i]== "5"){
+      
+      RTUPB_raw$Indication[i] <- "Lithiase_Vesicale"
+      
+    }
+    if(RTUPB_raw$Indication[i]== "6"){
+      
+      RTUPB_raw$Indication[i] <- "Diverticule"
+     
+    }
+    if(RTUPB_raw$Indication[i]== "7"){
+      
+      RTUPB_raw$Indication[i] <- "Hematurie"
+     
+    }
+    if(RTUPB_raw$Indication[i]== "8"){
+      
+      RTUPB_raw$Indication[i] <- "Infection"
+   
+    }
+    print(i)
+    
+    #Renommage des facteurs des variables Indication:     
+    if(RTUPB_raw$Anesthesie[i] == 1){
+      RTUPB_raw$Anesthesie[i] <- "Anestesie-locoregionale"
+    }
+    if(RTUPB_raw$Anesthesie[i] == 2){
+      RTUPB_raw$Anesthesie[i] <- "Anestesie-generale"
+    }
+    #Renommage des facteurs des variables Technique:
+    if(RTUPB_raw$Technique[i] == 1){
+      RTUPB_raw$Technique[i] <- "RTUPB"
+    }
+    if(RTUPB_raw$Technique[i] == 2){
+      RTUPB_raw$Technique[i] <- "VBBP"
+    }
+    if(RTUPB_raw$Technique[i] == 3){
+      RTUPB_raw$Technique[i] <- "VAPOR"
+    }
+    #Renommage des facteurs des variables Evenement_HD
+    if(RTUPB_raw$Evenement_HD[i] == 0){
+      RTUPB_raw$Evenement_HD[i] <- "Event_Aucun"
+    }
+    if(RTUPB_raw$Evenement_HD[i] == 1){
+      RTUPB_raw$Evenement_HD[i] <- "Hypotention"
+    }
+    if(RTUPB_raw$Evenement_HD[i] == 2){
+      RTUPB_raw$Evenement_HD[i] <- "Bracardie"
+    }
+    if(RTUPB_raw$Evenement_HD[i] == 3){
+      RTUPB_raw$Evenement_HD[i] <- "Malaise_Vagual"
+    }
+    print(i+1)
+  }
+  
+  
+  assign(paste(Nom_dataframe,"_to_oneHot",sep=""), RTUPB_raw,envir = .GlobalEnv)
+}
+
+#Import et traitement des donnnées de RTUPB, VAPOR, VBBPS:
+for (i in 1:1){
+RTUPB_raw <- read.csv("RTUPB_1.csv",header = T, sep = ";")
+RTUPB_raw <- as.data.frame(sapply(RTUPB_raw, as.numeric))
+RTUPB_raw <- RTUPB_raw[1:36,-1]
+
+
+VAPOR_raw <- read.csv("VAPOR_1.csv",header = T, sep = ";")
+VAPOR_raw <- VAPOR_raw[,-1]
+VAPOR_raw <- as.data.frame(sapply(VAPOR_raw,as.numeric))
+
+
+VBBPS_raw <- read.csv("VBBPS_1.csv",header = T, sep = ";")
+VBBPS_raw <- VBBPS_raw[,-1]
+VBBPS_raw <- as.data.frame(sapply(VBBPS_raw,as.numeric))
+
+#Renommage des colonnes
+noms_colonnes <- c("Age","Comorbidite","Duree_Traitement","Porteur_de_sonde","IPSS_PO","QoL_PO","QMax_PO","PSA","Volume_prostatique","Residu_post_mictionnel","Indication","Anesthesie","Evenement_HD","Technique","Transfusion_pero","Temps_OP","Volume_resseque","Delais_Ablation_jour","Caillotage","Reprise_au_bloc","IPSS_1","QoL_1","Qmax_1","IPSS_3","QoL_3","Qmax_3","IPSS_6","QoL_6","Qmax_6","IPSS_9","QoL_9","Qmax_9","IPSS_12","QoL_12","Qmax_12","IPSS_15","QoL_15","Qmax_15","IPSS_18","QoL_18","Qmax_18")
+colnames(VAPOR_raw) <-noms_colonnes
+colnames(RTUPB_raw)<-noms_colonnes
+colnames(VBBPS_raw)<-noms_colonnes
+
+#Creations de Tableau Pre_op-Post_op:
+VBBPS_raw.pre_op <- VBBPS_raw[,1:20]
+VBBPS_raw.post_op <- VBBPS_raw[,21:41]
+VAPOR_raw.pre_op <- VAPOR_raw[,1:20]
+VAPOR_raw.post_op <- VAPOR_raw[,21:41]
+RTUPB_raw.pre_op <- RTUPB_raw[,1:20]
+RTUPB_raw.post_op <- RTUPB_raw[,21:41]
+
+
+#Traitement des 3 tableaux pour le oneHot_encoding:
+liste_var <- c("RTUPB_raw","VAPOR_raw","VBBPS_raw")
+for (z in 1:3){
+  Rename_factors(liste_var[z])
+  
+  if(z == 3){
+  Aggregated_datas <- rbind(RTUPB_raw_to_oneHot,VAPOR_raw_to_oneHot,VBBPS_raw_to_oneHot,deparse.level = 1) 
+  Aggregated_datas$Indication <- as.factor(Aggregated_datas$Indication)
+  Aggregated_datas$Anesthesie <- as.factor(Aggregated_datas$Anesthesie)
+  Aggregated_datas$Technique <- as.factor(Aggregated_datas$Technique)
+  Aggregated_datas$Evenement_HD <- as.factor(Aggregated_datas$Evenement_HD)
+    
+  Aggregated_ENCODED <- onehot(Aggregated_datas)
+  Aggregated_ENCODED <- predict(Aggregated_ENCODED,Aggregated_datas)
+  Aggregated_ENCODED <- as.data.frame(Aggregated_ENCODED)
+  
+# Au cas où: encodés en one Hot:  
+    RTUPB_raw_to_oneHot$Indication <- as.factor(RTUPB_raw_to_oneHot$Indication)
+    RTUPB_raw_to_oneHot$Anesthesie <- as.factor(RTUPB_raw_to_oneHot$Anesthesie)
+    RTUPB_raw_to_oneHot$Technique <- as.factor(RTUPB_raw_to_oneHot$Technique)
+    RTUPB_raw_to_oneHot$Evenement_HD <- as.data.frame( as.factor(RTUPB_raw_to_oneHot$Evenement_HD))
+
+
+    RTUPB_ENCODED <- onehot(RTUPB_raw_to_oneHot)
+    RTUPB_ENCODED <- predict(RTUPB_ENCODED,RTUPB_raw_to_oneHot)
+
+
+    VAPOR_raw_to_oneHot$Indication <- as.factor(VAPOR_raw_to_oneHot$Indication)
+    VAPOR_raw_to_oneHot$Anesthesie <- as.factor(VAPOR_raw_to_oneHot$Anesthesie)
+    VAPOR_raw_to_oneHot$Technique <- as.factor(VAPOR_raw_to_oneHot$Technique)
+    VAPOR_raw_to_oneHot$Evenement_HD <- as.factor(VAPOR_raw_to_oneHot$Evenement_HD)
+
+
+    VAPOR_ENCODED <- onehot(VAPOR_raw_to_oneHot)
+    VAPOR_ENCODED <- predict(VAPOR_ENCODED,VAPOR_raw_to_oneHot)
+
+
+    VBBPS_raw_to_oneHot$Indication <- as.factor(VBBPS_raw_to_oneHot$Indication)
+    VBBPS_raw_to_oneHot$Anesthesie <- as.factor(VBBPS_raw_to_oneHot$Anesthesie)
+    VBBPS_raw_to_oneHot$Technique <- as.factor(VBBPS_raw_to_oneHot$Technique)
+    VBBPS_raw_to_oneHot$Evenement_HD <- as.factor(VBBPS_raw_to_oneHot$Evenement_HD)
+
+
+    VBBPS_ENCODED <- onehot(VBBPS_raw_to_oneHot)
+    VBBPS_ENCODED <- predict(VBBPS_ENCODED,VBBPS_raw_to_oneHot)
+  
+}
+
+
+}}
+
+# RTUPB_VBBPS:
+RTUPB_VBBPS_ENCODED <-rbind(RTUPB_ENCODED,VBBPS_ENCODED,deparse.level = 1)
+
+#Suppression des doublons dans VAPOR:
+
+
+
+```
+
+
+########################################################
+# 2 Statistique Descriptive
+########################################################
+#Variables pré-operatoires:
+
+
+#2.1 Analyse de la base VAPOR et RTUPB-VBBPS preoperatoire:
+
+##2.1.1 Analyse des variables des qualitatives de VAPOR:
+```{r}
+#Histogramme des fréquences variables categorielles:
+#par(mfrow=c(2,5))
+#list_categorial <- c(2,4,11,12,13,14,15,24,25,19)
+#for (i in 1:10) {
+#  plot(as.factor(VAPOR_ENCODED[,list_categorial[i]]), main=colnames(VAPOR_ENCODED)[list_categorial[i]],
+#       ylab = "Count (VAPOR)", col="steelblue", las=2)
+#}
+
+#Camenbert Indications VAPOR:
+pie(c(sum(VAPOR_ENCODED[,2]==1),sum(VAPOR_ENCODED[,2]==0)),c("Commorbidité Vx 40%","Pas de Commorbidité Vx 60%"),main="Commorbidité Vx VAPOR",col=c("steelblue", "red"))
+
+
+pie(c(sum(VAPOR_ENCODED[,4]==1),sum(VAPOR_ENCODED[,2]==0)),c("Porteur de sonde 35%
+","Sans sonde 65%"),main="Porteur de sonde VAPOR
+",col=c("steelblue", "red"))
+
+pie(c(sum(VAPOR[,13]==1),sum(VAPOR[,13]==2)),c("Anesthesie régionale 67,5%","Anesthesie generale32,5"),main="Anesthesie VAPOR
+",col=c("steelblue", "red"))
+
+
+pie(c(sum(VAPOR[,14]==0),sum(VAPOR[,14]==1)),c("Pas d´evenement HD 100%","Hypotension 0%"),main="Evenement HD VAPOR",col=c("steelblue", "red"))
+
+
+pie(c(sum(VAPOR[,16]==0),sum(VAPOR[,16]==1)),c("Pas de transfusion 100%","Transfusion 0%"),main="Transfusion VAPOR",col=c("steelblue", "red"))
+
+
+pie(c(sum(VAPOR[,20]==0),sum(VAPOR[,20]==1)),c("Pas de Caillotage 32,5%","Caillotage 67,5%"),main="Caillotage VAPOR",col=c("steelblue", "red"))
+
+pie(c(sum(VAPOR[,21]==0),sum(VAPOR[,21]==1)),c("Pas de reprise au bloc 12,5%","Reprise au bloc 87,5"),main="Reprise au bloc VAPOR",col=c("steelblue", "red"))
+
+
+
+pie(c(sum(VAPOR[,12]==1),sum(VAPOR[,12]==2),sum(VAPOR[,12]==3),sum(VAPOR[,12]==4),sum(VAPOR[,12]==5),sum(VAPOR[,12]==6),sum(VAPOR[,12]==7),sum(VAPOR[,12]==8),sum(VAPOR[,12]==9)),c("Retension_vesicale 35%","Echec_du_traitement 55%","Retension_vesicale","Insuffisance_renale 2,25%%","Lithiase_Vesicale 5,88%"),main="Indication VAPOR",col=c("steelblue", "red","yellow","green","grey","orange","pink","black"))#
+
+#Correlation des variables catégorielles:
+par(mfrow=c(1,1))
+corrplot(cor(VAPOR_ENCODED[,c(2,4,11,12,13,14,15,19)], method="spearman"),diag = F,type = "lower",title = "Matrice des correlations de la méthode VAPOR (variable qualitatives)",mar = c(0,0,7,0) , na.label = "o") 
+
+```
+
+##2.1.1 Analyse des variables des qualitatives de RTUPB_VBBPS:
+```{r}
+#Histogramme des fréquences variables categorielles:
+#par(mfrow=c(3,3))
+#list_categorial <- c(2,4,11,12,13,14,15,18)
+#for (i in 1:8) {
+ # plot(as.factor(RTUPB_VBBPS_ENCODED[,list_categorial[i]]), main=colnames(RTUPB_VBBPS_ENCODED)[list_categorial[i]],
+#       ylab = "Count (RTUPB_VBBPS)", col="steelblue", las=2)
+#}
+
+pie(c(sum(RTUPB_VBBPS_ENCODED[,2]==1),sum(RTUPB_VBBPS_ENCODED[,2]==0)),c("Commorbidité Vx 44,8%","Pas de Commorbidité Vx 55,2%"),main="Commorbidité Vx RTUPB_VBBPS",col=c("steelblue", "red"))
+
+
+pie(c(sum(RTUPB_VBBPS_ENCODED[,4]==1),sum(RTUPB_VBBPS_ENCODED[,2]==0)),c("Porteur de sonde 38%
+","Sans sonde 62%"),main="Porteur de sonde RTUPB_VBBPS
+",col=c("steelblue", "red"))
+
+
+pie(c(sum(RTUPB_VBBPS[,13]==1),sum(RTUPB_VBBPS[,13]==2)),c("Anesthesie régionale 64,7%","Anesthesie generale 35,3%"),main="Anesthesie RTUPB_VBBPS
+",col=c("steelblue", "red"))
+
+pie(c(sum(RTUPB_VBBPS[,14]==0),sum(RTUPB_VBBPS[,14]==1)),c("Pas d´evenement HD 100%","Hypotension 0%"),main="Evenement HD RTUPB_VBBPS",col=c("steelblue", "red"))
+
+pie(c(sum(RTUPB_VBBPS[,16]==0),sum(RTUPB_VBBPS[,16]==1)),c("Pas de transfusion 100%","Transfusion 0%"),main="Transfusion RTUPB_VBBPS",col=c("steelblue", "red"))
+
+
+pie(c(sum(RTUPB_VBBPS[,20]==0),sum(RTUPB_VBBPS[,20]==1)),c("Pas de Caillotage 12%","Caillotage 67,5%"),main="Caillotage RTUPB_VBBPS",col=c("steelblue", "red"))
+
+
+pie(c(sum(RTUPB_VBBPS[,21]==0),sum(RTUPB_VBBPS[,21]==1)),c("Pas de reprise au bloc 0%","Reprise au bloc 100%"),main="Reprise au bloc RTUPB_VBBPS",col=c("steelblue", "red"))
+
+
+pie(c(sum(RTUPB_VBBPS[,12]==1),sum(RTUPB_VBBPS[,12]==2),sum(RTUPB_VBBPS[,12]==3),sum(RTUPB_VBBPS[,12]==4),sum(RTUPB_VBBPS[,12]==5),sum(RTUPB_VBBPS[,12]==6),sum(RTUPB_VBBPS[,12]==7),sum(RTUPB_VBBPS[,12]==8),sum(RTUPB_VBBPS[,12]==9)),c("Retension_vesicale 38,24%","Echec_du_traitement 35,29%","Retension_vesicale_chronique 8,82%","Retension_vesicale","Insuffisance_renale 11,76%","Lithiase_Vesicale 5,88%"),main="Indication RTUPB_VBBPS",col=c("steelblue", "red","yellow","green","grey","orange","pink","black"))
+
+#Correlation des variables catégorielles:
+par(mfrow=c(1,1))
+corrplot(cor(RTUPB_VBBPS_ENCODED[,c(2,4,11,12,13,14,15,19)], method="spearman"),diag = F,type = "lower",title = "Matrice des correlations de la méthode RTUPB_VBBPS (variable qualitatives)",mar = c(0,0,7,0) , na.label = "o") 
+
+```
+
+#2.2.1 Analyse des variables quantitatives de VAPOR:
+
+```{r}
+#sapply(RTUPB_raw, class)
+#factor
+#sapply(RTUPB_raw, class)
+#RTUPB_raw.post_op <- sapply(RTUPB_raw.post_op, as.numeric)
+
+#Matrice des correlations:
+#Selection des colonnes de variables quantitatives:
+VAPOR_Tempo <-VAPOR_raw[,c(1,3,5,6,7,8,9,10,16,17,18)]
+RTUPB_Tempo <-RTUPB_raw[,c(1,3,5,6,7,8,9,10,16,17,18)]
+VBBPS_Tempo <-VBBPS_raw[,c(1,3,5,6,7,8,9,10,16,17,18)]
+RTUPB_VBBPS_Tempo <- rbind(RTUPB_Tempo,VBBPS_Tempo,deparse.level = 1)
+
+#Visualisation des boxplots:
+par(mfrow=c(3,4))
+listecol_qual <- c(1,3,5,6,7,8,9,10,16,17,18)
+for (z in 1:11){
+boxplot(VAPOR_Tempo[,z],ylim=c(0,floor(1.1*max(VAPOR_Tempo[,z],na.rm = TRUE))),col = "steelblue",main=colnames(VAPOR_Tempo)[z],ylab = "VAPOR")
+}
+
+#Test de normalité Shapiro-Wilk:
+shapiro.test(VAPOR_Tempo[,1])#Age  p-value = 0.1147
+shapiro.test(VAPOR_Tempo[,2])#Durée Traitement p-value = 3.104e-05
+shapiro.test(VAPOR_Tempo[,3])#IPSS_PO p-value = 0.0004156
+shapiro.test(VAPOR_Tempo[,4])#QoL_PO p-value = 7.967e-09
+shapiro.test(VAPOR_Tempo[,5])#QMax_PO p-value = 5.089e-05
+shapiro.test(VAPOR_Tempo[,6])#PSA p-value = 0.2825
+shapiro.test(VAPOR_Tempo[,7])#Vol_Pros p-value = 0.001389
+shapiro.test(VAPOR_Tempo[,8])#Residu post_mictionnel p-value = 0.001862
+shapiro.test(VAPOR_Tempo[,9])#Temps Operatoire  p-value = 0.001441
+shapiro.test(VAPOR_Tempo[,10])#Volume Reseque p-value = 0.0208
+shapiro.test(VAPOR_Tempo[,11])#Délai Ablation p-value = 0.0004664
+
+#Les indicateurs Durée Traitement, IPSS_PO, QoL_PO, QMax_PO, Vol_Pros, Residu post_mictionnel,Volume Reseque, Délai Ablation ne suivent pas une loi normale. On utilise la correlation de Spearman à la place de celle de Pearson.
+
+par(mfrow=c(1,1))
+corrplot(cor(VAPOR_Tempo, method="spearman"),diag = F,type = "lower",title = "Matrice des correlations de la méthode VAPOR",mar = c(0,0,7,0) , na.label = "o") 
+
+
+
+chart.Correlation(VAPOR_Tempo, histogram=TRUE, pch=100, method="spearman")
+
+#plot(density(RTUPB_Tempo$IPSS_PO,na.rm = TRUE))
+
+#?chart.Correlation
+#cor(VBBPS_Tempo)
+#RTUPB_raw.post_op %>% correlate() %>% network_plot(min_cor=0.6)
+#ggpairs(RTUPB_raw.post_op)
+#RTUPB_raw.post_op <-as.data.frame(RTUPB_raw.post_op)
+
+## Pies
+
+
+#?cbind
+#Aggregated_datas <- rbind(RTUPB_raw,VAPOR_raw,VBBPS_raw,deparse.level = 1)
+
+```
+
+#2.2.2 Analyse des variables quantitatives de RTUPB_VBBPS:
+
+```{r}
+#sapply(RTUPB_raw, class)
+#factor
+#sapply(RTUPB_raw, class)
+#RTUPB_raw.post_op <- sapply(RTUPB_raw.post_op, as.numeric)
+
+#Matrice des correlations:
+#Selection des colonnes de variables quantitatives:
+VAPOR_Tempo <-VAPOR_raw[,c(1,3,5,6,7,8,9,10,16,17,18)]
+RTUPB_Tempo <-RTUPB_raw[,c(1,3,5,6,7,8,9,10,16,17,18)]
+VBBPS_Tempo <-VBBPS_raw[,c(1,3,5,6,7,8,9,10,16,17,18)]
+RTUPB_VBBPS_Tempo <- rbind(RTUPB_Tempo,VBBPS_Tempo,deparse.level = 1)
+
+#Visualisation des boxplots:
+listecol_qual <- c(1,3,5,6,7,8,9,10,16,17,18)
+for (z in 1:11){
+boxplot(RTUPB_VBBPS_Tempo[,z],ylim=c(0,floor(1.1*max(RTUPB_VBBPS_Tempo[,z],na.rm = TRUE))),col = "steelblue",main=colnames(RTUPB_VBBPS_Tempo)[z],ylab = "VAPOR")
+}
+
+#Test de normalité Shapiro-Wilk:
+shapiro.test(RTUPB_VBBPS_Tempo[,1])#Age  p-value = 0.1147
+shapiro.test(RTUPB_VBBPS_Tempo[,2])#Durée Traitement p-value = 3.104e-05
+shapiro.test(RTUPB_VBBPS_Tempo[,3])#IPSS_PO p-value = 0.0004156
+shapiro.test(RTUPB_VBBPS_Tempo[,4])#QoL_PO p-value = 7.967e-09
+shapiro.test(RTUPB_VBBPS_Tempo[,5])#QMax_PO p-value = 5.089e-05
+shapiro.test(RTUPB_VBBPS_Tempo[,6])#PSA p-value = 0.2825
+shapiro.test(RTUPB_VBBPS_Tempo[,7])#Vol_Pros p-value = 0.001389
+shapiro.test(RTUPB_VBBPS_Tempo[,8])#Residu post_mictionnel p-value = 0.001862
+shapiro.test(RTUPB_VBBPS_Tempo[,9])#Temps Operatoire  p-value = 0.001441
+shapiro.test(RTUPB_VBBPS_Tempo[,10])#Volume Reseque p-value = 0.0208
+shapiro.test(RTUPB_VBBPS_Tempo[,11])#Délai Ablation p-value = 0.0004664
+
+#Les indicateurs Durée Traitement, IPSS_PO, QoL_PO, QMax_PO, Vol_Pros, Residu post_mictionnel,Volume Reseque, Délai Ablation ne suivent pas une loi normale. On utilise la correlation de Spearman à la place de celle de Pearson.
+
+par(mfrow=c(1,1))
+corrplot(cor(RTUPB_VBBPS_Tempo, method="spearman"),diag = F,type = "lower",title = "Matrice des correlations de la méthode RTUPB_VBBPS",mar = c(0,0,7,0) , na.label = "o") 
+
+
+chart.Correlation(RTUPB_VBBPS_Tempo, histogram=TRUE, pch=100, method="spearman")
+
+```
+
+
+#2.2 Analyse de la base VAPOR et RTUPB-VBBPS post-operatoire:
+#```{r}
+library(tidyverse)
+#Affichage des 3 méthodes avec leur impact sur l´IPSS:
+par(mfrow=c(3,2))
+RTUPB_VBBPS_raw <-rbind(RTUPB_raw,VBBPS_raw,deparse.level = 1)
+
+
+###IPSS:
+#Boxplot de l´IPSS avec la méthode VAPOR:
+Mes_pst_VAPOR = select(VAPOR_raw,c(21:41)) # import des mesure pst
+IPSS_evo_VAPOR = Mes_pst_VAPOR[,c(1,4,7,10,13,16,19)]# selection des colonnes IPSS_post 
+Mes_pre_VAPOR = unlist(VAPOR_raw[,5])
+IPSS_tot_VAPOR = add_column(IPSS_evo_VAPOR,Mes_pre_VAPOR,.before = 1)
+Mes_date = c("Pre","1_mois","3_mois","6_mois","9_mois","12_mois","15_mois","18_mois")
+boxplot(IPSS_tot_VAPOR,names = Mes_date ,main="Evolution temporelle de l´IPSS avec la méthode VAPOR",ylab = "IPSS", cex.axis = 0.9, col = "steelblue",ylim=c(0,38))
+
+#Boxplot de l´IPSS avec la méthode RTUPB_VBBPS:
+Mes_pst_RTUPB = select(RTUPB_VBBPS_raw,c(21:41)) # import des mesure pst
+IPSS_evo_RTUPB = Mes_pst_RTUPB[,c(1,4,7,10,13,16,19)]# selection des colonnes IPSS_post 
+Mes_pre_RTUPB = unlist(RTUPB_VBBPS_raw[,5])
+IPSS_tot_RTUPB = add_column(IPSS_evo_RTUPB,Mes_pre_RTUPB,.before = 1)
+Mes_date = c("Pre","1_mois","3_mois","6_mois","9_mois","12_mois","15_mois","18_mois")
+boxplot(IPSS_tot_RTUPB,names = Mes_date ,main="Evolution temporelle de l´IPSS avec la méthode RTUPB_VBBPS",ylab = "IPSS", cex.axis = 0.9, col = "steelblue",ylim=c(0,38))
+
+#Boxplot de l´IPSS avec la méthode VBBPS:
+#Mes_pst_VBBPS = select(VBBPS_raw,c(21:41)) # import des mesure pst
+##IPSS_evo_VBBPS = Mes_pst_VBBPS[,c(1,4,7,10,13,16,19)]# selection des colonnes IPSS_post 
+#Mes_pre_VBBPS = unlist(VBBPS_raw[,5])
+#IPSS_tot_VBBPS = add_column(IPSS_evo_VBBPS,Mes_pre_VBBPS,.before = 1)
+#Mes_date = c("Pre","1_mois","3_mois","6_mois","9_mois","12_mois","15_mois","18_mois")
+#boxplot(IPSS_tot_VBBPS,names = Mes_date ,main="Evolution temporelle de l´IPSS avec la méthode VBBPS",ylab = "IPSS", cex.axis = 0.9, col = "steelblue",ylim=c(0,38))
+
+#Affichage des 3 méthodes simulatément avec leurr impact sur la QoL:
+#par(mfrow=c(1,3))
+##QoL:
+##QoL_VAPOR:
+Mes_pst_VAPOR = select(VAPOR_raw,c(21:41)) # import des mesures pst
+QoL_evo_VAPOR = Mes_pst_VAPOR[,c(2,5,8,11,14,17,20)]# selection des colonnes IPSS_post 
+Mes_pre_VAPOR_QoL = unlist(VAPOR_raw[,6])
+IPSS_tot_VAPOR = add_column(QoL_evo_VAPOR,Mes_pre_VAPOR_QoL,.before = 1)
+Mes_date = c("Pre","1_mois","3_mois","6_mois","9_mois","12_mois","15_mois","18_mois")
+boxplot(IPSS_tot_VAPOR,names = Mes_date ,main="Evolution temporelle de la QoL avec la méthode VAPOR",ylab = "QoL", cex.axis = 0.9, col = "steelblue",ylim=c(0,7))
+
+##QoL_RTUPB:
+Mes_pst_RTUPB = select(RTUPB_VBBPS_raw,c(21:41)) # import des mesure pst
+QoL_evo_RTUPB = Mes_pst_RTUPB[,c(2,5,8,11,14,17,20)]# selection des colonnes IPSS_post 
+Mes_pre_RTUPB_QoL = unlist(RTUPB_VBBPS_raw[,6])
+IPSS_tot_RTUPB = add_column(QoL_evo_RTUPB,Mes_pre_RTUPB_QoL,.before = 1)
+Mes_date = c("Pre","1_mois","3_mois","6_mois","9_mois","12_mois","15_mois","18_mois")
+boxplot(IPSS_tot_RTUPB,names = Mes_date ,main="Evolution temporelle de la QoL avec la méthode RTUPB_VBBPS",ylab = "QoL", cex.axis = 0.9, col = "steelblue",ylim=c(0,7))
+
+##QoL_RTUPB:
+#Mes_pst_VBBPS = select(VBBPS_raw,c(21:41)) # import des mesure pst
+#QoL_evo_VBBPS = Mes_pst_VBBPS[,c(2,5,8,11,14,17,20)]# selection des colonnes IPSS_post 
+#Mes_pre_VBBPS_QoL = unlist(VBBPS_raw[,6])
+#IPSS_tot_VBBPS = add_column(QoL_evo_VBBPS,Mes_pre_VBBPS_QoL,.before = 1)
+#Mes_date = c("Pre","1_mois","3_mois","6_mois","9_mois","12_mois","15_mois","18_mois")
+#boxplot(IPSS_tot_VBBPS,names = Mes_date ,main="Evolution temporelle de la QoL avec la méthode VBBPS",ylab = "QoL", cex.axis = 0.9, col = "steelblue",ylim=c(0,7))
+
+##QMax:
+#par(mfrow=c(1,3))
+##QMax_VAPOR:
+Mes_pst_VAPOR = select(VAPOR_raw,c(21:41)) # import des mesure pst
+QMax_evo_VAPOR = Mes_pst_VAPOR[,c(3,6,9,12,15,18,21)]# selection des colonnes IPSS_post 
+Mes_pre_VAPOR_QMax = unlist(VAPOR_raw[,7])
+IPSS_tot_VAPOR = add_column(QMax_evo_VAPOR,Mes_pre_VAPOR_QMax,.before = 1)
+Mes_date = c("Pre","1_mois","3_mois","6_mois","9_mois","12_mois","15_mois","18_mois")
+boxplot(IPSS_tot_VAPOR,names = Mes_date ,main="Evolution temporelle de la QMax avec la méthode VAPOR",ylab = "Qmax", cex.axis = 0.9, col = "steelblue",ylim=c(0,30))
+
+##QoL_RTUPB:
+Mes_pst_RTUPB = select(RTUPB_VBBPS_raw,c(21:41)) # import des mesure pst
+QMax_evo_RTUPB = Mes_pst_RTUPB[,c(3,6,9,12,15,18,21)]# selection des colonnes IPSS_post 
+Mes_pre_RTUPB_QMax = unlist(RTUPB_VBBPS_raw[,7])
+IPSS_tot_RTUPB = add_column(QMax_evo_RTUPB,Mes_pre_RTUPB_QoL,.before = 1)
+Mes_date = c("Pre","1_mois","3_mois","6_mois","9_mois","12_mois","15_mois","18_mois")
+boxplot(IPSS_tot_RTUPB,names = Mes_date ,main="Evolution temporelle de la QMax avec la méthode RTUPB_VBBPS",ylab = "Qmax", cex.axis = 0.9, col = "steelblue",ylim=c(0,30))
+
+##QoL_VBBPS:
+#Mes_pst_VBBPS = select(VBBPS_raw,c(21:41)) # import des mesure pst
+#QMax_evo_VBBPS = Mes_pst_VBBPS[,c(3,6,9,12,15,18,21)]# selection des colonnes IPSS_post 
+#Mes_pre_VBBPS_QMax = unlist(VBBPS_raw[,7])
+#IPSS_tot_VBBPS = add_column(QMax_evo_VBBPS,Mes_pre_VBBPS_QoL,.before = 1)
+#Mes_date = c("Pre","1_mois","3_mois","6_mois","9_mois","12_mois","15_mois","18_mois")
+#boxplot(IPSS_tot_VBBPS,names = Mes_date ,main="Evolution temporelle de la QMax avec la méthode VBBPS",ylab = "Qmax", cex.axis = 0.9, col = "steelblue",ylim=c(0,30))
+
+```
+
+
+
+#Correlation Variables postoperatoires:
+```{r}
+#sapply(RTUPB_raw, class)
+#factor
+#sapply(RTUPB_raw, class)
+#RTUPB_raw.post_op <- sapply(RTUPB_raw.post_op, as.numeric)
+
+#Matrice des correlations:
+#Selection des colonnes de variables quantitatives:
+VAPOR_Tempo_post <-VAPOR_raw[,c(21:41)]
+RTUPB_Tempo_post <-RTUPB_raw[,c(21:41)]
+VBBPS_Tempo_post <-VBBPS_raw[,c(21:41)]
+RTUPB_VBBPS_Tempo_post <- rbind(RTUPB_Tempo_post,RTUPB_Tempo_post,deparse.level = 1)
+
+
+#Test de normalité Shapiro-Wilk:
+
+
+#Les indicateurs ne suivent pas une loi normale, on utilise la correlation de Spearman.
+
+par(mfrow=c(1,1))
+corrplot(cor(RTUPB_VBBPS_Tempo_post, method="spearman"),diag = F,type = "lower",title = "Matrice des correlations de la méthode RTUPB-VBBPS",mar = c(0,0,7,0) , na.label = "o") 
+corrplot(cor(VAPOR_Tempo_post, method="spearman"),diag = F,type = "lower",title = "Matrice des correlations de la méthode VAPOR",mar = c(0,0,7,0) , na.label = "o") 
+
+chart.Correlation(RTUPB_VBBPS_Tempo_post, histogram=TRUE, pch=100, method="spearman")
+chart.Correlation(VAPOR_Tempo_post, histogram=TRUE, pch=100, method="spearman")
+
+```
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
