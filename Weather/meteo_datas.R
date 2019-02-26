@@ -39,7 +39,7 @@ library(stringr)
 #################################
 
 #### REPERTOIRE DE TRAVAIL #####################
-setwd("C:/Users/GnOu/Desktop/Birdz")    #Emplacement du dossier de travail
+setwd("C:/Users/...")    #Emplacement du dossier de travail
 ################################################
 
 
@@ -54,8 +54,8 @@ RAW_DATA$Date <- as.POSIXct(RAW_DATA$Date, tz = "Europe/Paris", format ="%Y-%m-%
 Bornes <- c("2018-10-01 00:00:00","2018-11-01 00:00:00")
 RAW_DATA_sorted <- RAW_DATA[order(RAW_DATA$Date),]
 RAW_DATA_S <- RAW_DATA_sorted[,c(1,2,3,8,10,15,17,33,36,37,40,41,42,43,60:64)]    #Selection des colonnes de donnees d'interet
-RAW_DATA_S$Température <- RAW_DATA_S$Température - 273.15                         #Conversion en celcius
-RAW_DATA_S$Rafales.sur.une.période <- RAW_DATA_S$Rafales.sur.une.période * 3.6000 #Conversion de m/s a km/h de la vitesse du vent
+RAW_DATA_S$TempÃ©rature <- RAW_DATA_S$TempÃ©rature - 273.15                         #Conversion en celcius
+RAW_DATA_S$Rafales.sur.une.pÃ©riode <- RAW_DATA_S$Rafales.sur.une.pÃ©riode * 3.6000 #Conversion de m/s a km/h de la vitesse du vent
 RAW_DATA_S <- RAW_DATA_S[-which(is.na(RAW_DATA_S$Date)),]
 ################################################
 
